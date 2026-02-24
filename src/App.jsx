@@ -14,9 +14,13 @@ function App() {
   const [esRegistro, setEsRegistro] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [modalAbierto, setModalAbierto] = useState(false)
- // --- NUEVOS ESTADOS PARA EL FILTRO DE ESTADO ---
+  const [lecturaAbierta, setLecturaAbierta] = useState(null); 
+  const [notas, setNotas] = useState([]);
+  const [nuevaNota, setNuevaNota] = useState({ capitulo: '', texto: '' });
   const [estadoFiltro, setEstadoFiltro] = useState('Todos');
   const [menuEstadoAbierto, setMenuEstadoAbierto] = useState(false);
+  const [capituloActual, setCapituloActual] = useState(1);
+  const [claseAnimacion, setClaseAnimacion] = useState(''); // Controla el CSS de pasar página
   const estadosFiltro = ['Todos', 'Pendiente', 'En progreso', 'Pausado', 'Completado'];
   
   const categoriasFiltro = ['Todo', 'Manhwa', 'Novela', 'Anime', 'Serie', 'Pelicula']
@@ -29,6 +33,67 @@ function App() {
     estado: 'Pendiente',
     imagen_url: ''
   })
+
+  // --- LÓGICA DEL LIBRITO ---
+  async function abrirLibrito(item) {
+    setLecturaAbierta(item);
+    setCapituloActual(1); // ¡NUEVO! Siempre abre el libro en el cap 1
+    
+    const { data, error } = await supabase
+      .from('notas_lectura')
+      .select('*')
+      .eq('lectura_id', item.id)
+      .order('capitulo', { ascending: false }); 
+
+    if (error) console.error("Error cargando notas:", error);
+    else setNotas(data);
+  }
+
+  // Guardar una nota nueva (Ahora recibe el capitulo exacto por parámetro)
+  async function guardarNota(e, capituloFijo) {
+    e.preventDefault();
+    
+    const notaParaGuardar = {
+      lectura_id: lecturaAbierta.id,
+      user_id: sesion.user.id,
+      capitulo: capituloFijo, // ¡Solución al bug!
+      texto: nuevaNota.texto
+    };
+
+    const { error } = await supabase
+      .from('notas_lectura')
+      .insert([notaParaGuardar]);
+
+    if (error) {
+      console.error("Error al guardar nota:", error);
+    } else {
+      setNuevaNota({ capitulo: '', texto: '' }); 
+      abrirLibrito(lecturaAbierta); 
+    }
+  }
+
+  // Función para cambiar de tarjeta deslizándola
+  const cambiarPagina = (direccion) => {
+    if (!lecturaAbierta) return;
+    
+    const limiteCapitulos = lecturaAbierta.categoria === 'Pelicula' 
+      ? 1 
+      : Math.max(1, lecturaAbierta.progreso_actual);
+
+    if (direccion > 0 && capituloActual >= limiteCapitulos) return;
+    if (direccion < 0 && capituloActual <= 1) return;
+
+    // Cambiamos los nombres de las clases a "deslizando"
+    setClaseAnimacion(direccion > 0 ? 'deslizando-adelante' : 'deslizando-atras');
+    
+    setTimeout(() => {
+      setCapituloActual(prev => prev + direccion); 
+    }, 200); // A los 200ms (mitad del camino), cambiamos el texto
+
+    setTimeout(() => {
+      setClaseAnimacion('');
+    }, 400); // A los 400ms termina la animación
+  };
 
   async function iniciarSesion(e) {
     e.preventDefault()
@@ -58,7 +123,7 @@ function App() {
     if (sesion) {
       obtenerLecturas(); 
     } else {
-      setLecturas([]); // limpiar panmtalla si no hay sesion
+      setLecturas([]); // limpiar pantalla si no hay sesion
     }
   }, [sesion]);
 
@@ -71,58 +136,57 @@ function App() {
   }
 
   // FUNCION DE SUMAR CAPITULO
-      async function sumarCapitulo(id, progresoActual, progresoTotal, estadoActual) {
-        // 1. Evitamos que pase del límite
-        if (progresoTotal && progresoActual >= progresoTotal) {
-          Swal.fire({
-              title: '¡Límite alcanzado!',
-              text: 'No puedes sumar más capítulos. 🎉',
-              icon: 'info',
-              background: '#4b1535a9',
-              color: '#fccbed',
-              confirmButtonColor: '#e48e67'
-            });
-          return; 
-        }
+  async function sumarCapitulo(id, progresoActual, progresoTotal, estadoActual) {
+    // 1. Evitamos que pase del límite
+    if (progresoTotal && progresoActual >= progresoTotal) {
+      Swal.fire({
+          title: '¡Límite alcanzado!',
+          text: 'No puedes sumar más capítulos. 🎉',
+          icon: 'info',
+          background: '#4b1535a9',
+          color: '#fccbed',
+          confirmButtonColor: '#e48e67'
+        });
+      return; 
+    }
 
-      
-        const nuevoProgreso = progresoActual + 1;
+    const nuevoProgreso = progresoActual + 1;
+    
+    // 2. Preparamos una "cajita" con los datos a guardar
+    let datosParaActualizar = { 
+      progreso_actual: nuevoProgreso 
+    };
+
+    // 3. La lógica automática
+    if (progresoTotal && nuevoProgreso >= progresoTotal) {
+      datosParaActualizar.estado = 'Completado';
+      Swal.fire({
+          title: '¡Felicidades!',
+          text: 'Has terminado esta lectura. ✨',
+          icon: 'success',
+          background: '#4b1535a9',
+          color: '#fccbed',
+          borderradius: '1rem',
+          confirmButtonColor: '#e48e67'
+        });
         
-        // 2. Preparamos una "cajita" con los datos a guardar
-        let datosParaActualizar = { 
-          progreso_actual: nuevoProgreso 
-        };
+    } else if (estadoActual === 'Pendiente') {
+      // Si apenas vas a empezar a leerlo, lo pasamos a En progreso
+      datosParaActualizar.estado = 'En progreso';
+    }
 
-        // 3. La lógica automática
-        if (progresoTotal && nuevoProgreso >= progresoTotal) {
-          datosParaActualizar.estado = 'Completado';
-          Swal.fire({
-              title: '¡Felicidades!',
-              text: 'Has terminado esta lectura. ✨',
-              icon: 'success',
-              background: '#4b1535a9',
-              color: '#fccbed',
-              borderradius: '1rem',
-              confirmButtonColor: '#e48e67'
-            });
-            
-        } else if (estadoActual === 'Pendiente') {
-          // Si apenas vas a empezar a leerlo, lo pasamos a En progreso
-          datosParaActualizar.estado = 'En progreso';
-        }
+    // 4. Enviamos la cajita a Supabase
+    const { error } = await supabase
+      .from('mi_entretenimiento')
+      .update(datosParaActualizar)
+      .eq('id', id); 
 
-        // 4. Enviamos la cajita a Supabase
-        const { error } = await supabase
-          .from('mi_entretenimiento')
-          .update(datosParaActualizar)
-          .eq('id', id); 
-
-        if (error) {
-          console.error("Hubo un error al guardar:", error);
-        } else {
-          obtenerLecturas();
-        }
-      }
+    if (error) {
+      console.error("Hubo un error al guardar:", error);
+    } else {
+      obtenerLecturas();
+    }
+  }
 
   function iniciarEdicion(item) {
     setEditandoId(item.id)
@@ -196,6 +260,7 @@ function App() {
       });
     }
   }
+
   async function agregarLectura(e) {
     e.preventDefault()
     
@@ -245,8 +310,8 @@ function App() {
       {!sesion ? (
         <div className="modal-fondo modal-fondo-registro">
           <form className="modal-contenido-registro" onSubmit={esRegistro ? registrarse : iniciarSesion}>
-            <h2>{esRegistro ? 'Crear Cuenta' : 'Viewpoint Login'}</h2>
             <img  className="modal-fondo-gif" src="iniciarsesion.gif" alt=""/>
+            <h2>{esRegistro ? 'Crear Cuenta' : 'Viewpoint Login'}</h2>
             <div className="grupo-inputs-modal">
               <input 
                 className="input-editar" 
@@ -389,12 +454,13 @@ function App() {
                     <div className="grupo-botones">
                       <button className="btn-guardar" onClick={() => guardarEdicion(item.id)}>Guardar</button>
                       <button className="btn-cancelar" onClick={() => setEditandoId(null)}>Cancelar</button>
+                      <button className="btn-eliminar" onClick={() => eliminarLectura(item.id)} title="Eliminar"> 🗑️ Eliminar </button>
                     </div>
                   </div>
                 ) : (
                   <>
-                  
-                    <h3>{item.titulo}</h3>
+                   <h3>{item.titulo}</h3> 
+                    
                     <div className="img-tarjeta-cuerpo">
                       {item.imagen_url ? <img src={item.imagen_url} alt={item.titulo} className="portada-img" /> : <div className="portada-placeholder">Sin portada 🐈</div>}
                       <div className='texto-lectura'>
@@ -415,7 +481,9 @@ function App() {
                       <button className="btn-editar" onClick={() => iniciarEdicion(item)}>
                         <img src="editarboton.png" alt="editar" />
                       </button>
-                      <button className="btn-eliminar" onClick={() => eliminarLectura(item.id)} title="Eliminar"> 🗑️ </button>
+                      <button className="btn-editar-librito" onClick={() => abrirLibrito(item)} title="Ver Notas">
+                        📖
+                      </button>
                     </div>
                   </>
                 )}
@@ -466,6 +534,80 @@ function App() {
           )}
         </>
       )}
+      
+      {/* --- MODAL DEL LIBRITO DE NOTAS (ESTILO LIBRETA) --- */}
+      {lecturaAbierta && (
+        <div className="modal-fondo">
+          <button className="btn-cerrar-modal" onClick={() => setLecturaAbierta(null)}>✖</button>
+          <div className="modal-contenido librito-modal">
+            
+            {/* Controles del libro (Arriba) */}
+            <div className="controles-libro">
+              <button 
+                className="btn-pagina" 
+                onClick={() => cambiarPagina(-1)}
+                style={{ visibility: capituloActual > 1 ? 'visible' : 'hidden' }}
+              >
+                ◀ Ant
+              </button>
+              
+              <h2 className="titulo-libro">📖 {lecturaAbierta.titulo}</h2>
+              
+              <button 
+                className="btn-pagina" 
+                onClick={() => cambiarPagina(1)}
+                style={{ 
+                  visibility: capituloActual < (lecturaAbierta.categoria === 'Pelicula' ? 1 : Math.max(1, lecturaAbierta.progreso_actual)) 
+                    ? 'visible' 
+                    : 'hidden' 
+                }}
+              >
+                Sig ▶
+              </button>
+            </div>
+
+            {/* La Página Física (Aquí ocurre la animación) */}
+            <div className={`pagina-fisica ${claseAnimacion}`}>
+              
+              <div className="contenido-pagina">
+                <h3 className="numero-capitulo">
+                  {lecturaAbierta.categoria === 'Pelicula' 
+                    ? 'Reseña de la Película' 
+                    : `Capítulo ${capituloActual}`}
+                </h3>
+                {/* Buscamos si hay una nota para este capítulo en específico */}
+                {(() => {
+                  const notaDelCapitulo = notas.find(n => n.capitulo === capituloActual);
+                  
+                  if (notaDelCapitulo) {
+                    return (
+                      <div className="texto-nota-largo">
+                        {notaDelCapitulo.texto}
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <form className="formulario-nuevo" onSubmit={(e) => guardarNota(e, capituloActual)}>
+                        <textarea 
+                          className="input-editar textarea-nota" 
+                          placeholder={lecturaAbierta.categoria === 'Pelicula' 
+                            ? "Escribe tus notas sobre la película aquí..." 
+                            : `Escribe tus notas para el capítulo ${capituloActual}...`}
+                          value={nuevaNota.texto}
+                          onChange={(e) => setNuevaNota({...nuevaNota, texto: e.target.value})}
+                          required
+                        />
+                        <button type="submit" className="btn-guardar">Guardar Nota</button>
+                      </form>
+                    );
+                  }
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
     </div>
   )
 }

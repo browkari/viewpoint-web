@@ -225,7 +225,7 @@ background: transparent;
 }
 
 modal-fondo-gif {
-  width: 20rem;
+  width: 100%;
 }
 
 .btn-hamburguesa {
@@ -498,4 +498,124 @@ div.swal2-popup {
 
 .swal2-confirm, .swal2-cancel {
   border-radius: 2rem !important;
+}
+
+
+.btn-editar-librito{
+  background-color: #4b15356b;
+  font-size: large;
+  padding: 0.2rem 0.6rem;
+  border-radius: 100%;
+}
+
+.btn-eliminar {
+  background-color: transparent;
+  font-size: large;
+  margin-bottom: 0.5rem;
+  align-self: center;
+  font-family: 'SN Pro', sans-serif;
+}
+
+/* --- ESTILOS DEL MODAL DE NOTAS (TIPO TARJETA) --- */
+.librito-modal {
+  background-color: #87418b !important; /* Volvemos al color de tus tarjetas */
+  border: 0.3rem double #41061e !important;
+  border-radius: 1rem !important;
+  box-shadow: 0.2rem 0.2rem 0.8rem 0 rgba(34, 14, 19, 0.3) !important;
+  padding: 0 !important;
+  max-width: 28rem;
+  overflow: hidden; /* Evita que la animación se salga de los bordes */
+}
+
+.controles-libro {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 1rem;
+  border-bottom: 2px solid rgba(244, 187, 207, 0.2);
+}
+
+.titulo-libro {
+  color: var(--color-queen-pink);
+  font-size: 1.1rem;
+  margin: 0;
+  text-align: center;
+  flex-grow: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-pagina {
+  background: rgba(244, 187, 207, 0.1);
+  border: 1px solid rgba(244, 187, 207, 0.3);
+  color: #fccbed;
+  padding: 0.5rem 0.8rem;
+  border-radius: 2rem; /* Botones redonditos como los tuyos */
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+.btn-pagina:hover {
+  background: rgba(244, 187, 207, 0.3);
+  transform: scale(1.05);
+}
+
+/* LA TARJETA EN SÍ */
+.pagina-fisica {
+  background-color: transparent; 
+  height: 50vh;
+  min-height: 250px;
+  display: flex;
+  position: relative;
+}
+
+.contenido-pagina {
+  padding: 1.5rem;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto; 
+}
+
+.numero-capitulo {
+  color: #fccbed;
+  border-bottom: 1px solid rgba(244, 187, 207, 0.2);
+  padding-bottom: 0.5rem;
+  margin-top: 0;
+}
+
+.texto-nota-largo {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1rem;
+  line-height: 1.6;
+  white-space: pre-wrap; 
+  word-wrap: break-word; 
+  word-break: break-word;
+}
+
+.textarea-nota {
+  min-height: 120px;
+  resize: vertical;
+}
+
+/* --- ANIMACIONES DE DESLIZAR (CARRUSEL) --- */
+.deslizando-adelante { animation: slideNext 0.4s ease-in-out forwards; }
+.deslizando-atras { animation: slidePrev 0.4s ease-in-out forwards; }
+
+@keyframes slideNext {
+  0% { transform: translateX(0); opacity: 1; }
+  49% { transform: translateX(-30px); opacity: 0; }
+  50% { transform: translateX(30px); opacity: 0; } /* Aquí cambia el texto */
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slidePrev {
+  0% { transform: translateX(0); opacity: 1; }
+  49% { transform: translateX(30px); opacity: 0; }
+  50% { transform: translateX(-30px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
 }
