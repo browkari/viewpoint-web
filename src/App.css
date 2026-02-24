@@ -90,48 +90,102 @@
   color: #fad6d3ac; 
 }
 
+/* =========================================
+   ESTRUCTURA DE BOTONES DE LAS TARJETAS
+========================================= */
+
+/* 1. El contenedor: Alinea todo al centro y reparte el espacio */
 .grupo-botones {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-wrap: wrap; 
+  gap: 0.6rem;
   margin-top: auto; 
+  align-items: center; 
 }
 
-.btn-sumar, .btn-guardar, .btn-editar, .btn-cancelar {
-  padding: 0.5rem 1rem;
-  font-family: 'SN Pro';
-  background-color: #4B1535;
-  color: rgba(216, 169, 169, 0.993);
+/* 2. Botones de TEXTO (Pastillas) */
+.btn-sumar, .btn-guardar, .btn-cancelar, .btn-eliminar {
+  padding: 0.6rem 1rem;
+  font-family: 'SN Pro', sans-serif;
   border: none;
   border-radius: 2rem; 
   font-weight: bold;
   cursor: pointer;
   transition: all 0.2s ease;
   flex-grow: 1; 
+  font-size: 0.95rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.btn-editar, .btn-eliminar{
-display: flex;
-justify-content: center;
-align-items: center;
-margin: 0;
-padding: 0;
-background: transparent;
+/* Colores de las pastillas */
+.btn-sumar, .btn-guardar {
+  background-color: var(--dark-color);
+  color: rgba(216, 169, 169, 0.993);
+}
+.btn-cancelar {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.btn-eliminar {
+  background-color: rgba(184, 61, 92, 0.8); 
+  color: white;
+}
+
+/* 3. Botón de Editar (Tu imagen alargadita) */
+.btn-editar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: transparent; /* Sin fondo de color porque tu imagen ya es el botón */
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-grow: 1; /* ¡Esto es lo que lo hace alargadito y que tome espacio! */
 }
 
 .btn-editar img {
-  height: 2.6rem;
-  object-fit: contain;
+  height: 2.6rem; /* El alto original que tenías */
+  width: 100%;
+  object-fit: contain; /* Asegura que tu imagen no se deforme ni se aplaste */
 }
 
-.btn-sumar:hover, .btn-editar:hover, .btn-guardar:hover, .btn-cancelar:hover, .btn-eliminar:hover {
-  filter: brightness(1.1);
+/* 4. Botón Librito (Este sí queda como Círculo) */
+.btn-editar-librito {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 2.6rem; 
+  height: 2.6rem;
+  background-color: var(--dark-color);
+  border: none;
+  border-radius: 50%; 
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0; 
+  color: white;
+  font-size: 1.2rem;
+}
+
+/* 4. Efectos de interacción para todos */
+.btn-sumar:hover, .btn-guardar:hover, .btn-cancelar:hover, .btn-eliminar:hover, 
+.btn-editar:hover, .btn-editar-librito:hover {
+  filter: brightness(1.2);
   transform: translateY(-0.1rem);
 }
 
-.btn-sumar:active, .btn-editar:active, .btn-guardar:active, .btn-cancelar:active, .btn-eliminar:active {
+.btn-sumar:active, .btn-guardar:active, .btn-cancelar:active, .btn-eliminar:active, 
+.btn-editar:active, .btn-editar-librito:active {
   transform: scale(0.95);
 }
+
+/* ========================================= */
 
 .modo-edicion {
   display: flex;
@@ -224,14 +278,16 @@ background: transparent;
   backdrop-filter: blur(0.2rem);
 }
 
-modal-fondo-gif {
-  width: 100%;
+.modal-fondo-gif {
+  width: 15rem;
+  border-radius: 2rem;
+  justify-self: center;
 }
 
 .btn-hamburguesa {
   background: transparent;
   border: none;
-  color: rgb(244, 187, 207); /* Tu color rosadito */
+  color: rgb(244, 187, 207);
   font-size: 2rem;
   cursor: pointer;
   padding: 0 0.5rem;
@@ -249,7 +305,7 @@ modal-fondo-gif {
   position: absolute;
   top: 3.5rem;
   left: 0;
-  background-color: #4b1535f2; /* Color oscuro con transparencia */
+  background-color: #4b1535f2; 
   backdrop-filter: blur(0.5rem);
   border: 1px solid rgba(244, 187, 207, 0.2);
   border-radius: 0.8rem;
@@ -299,9 +355,11 @@ modal-fondo-gif {
   animation: aparecerModal 0.3s ease-out forwards;
   box-sizing: border-box;
 }
+
 .modal-contenido input::placeholder {
   color: #4B1535;
 }
+
 @keyframes aparecerModal {
   from { transform: scale(0.8); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
@@ -438,7 +496,7 @@ modal-fondo-gif {
 }
 
 .input-busqueda::placeholder {
-  color: rgba(243, 200, 221, 0.5); /* Queen pink con transparencia */
+  color: rgba(243, 200, 221, 0.5); 
 }
 
 .app-container {
@@ -464,10 +522,6 @@ modal-fondo-gif {
 
 .link-auth:hover {
   text-decoration: underline;
-}
-
-.modal-fondo {
-  backdrop-filter: blur(0.8rem);
 }
 
 .modal-contenido-registro h2 {
@@ -500,40 +554,24 @@ div.swal2-popup {
   border-radius: 2rem !important;
 }
 
-
-.btn-editar-librito{
-  background-color: #4b15356b;
-  font-size: large;
-  padding: 0.2rem 0.6rem;
-  border-radius: 100%;
-}
-
-.btn-eliminar {
-  background-color: transparent;
-  font-size: large;
-  margin-bottom: 0.5rem;
-  align-self: center;
-  font-family: 'SN Pro', sans-serif;
-}
-
-/* --- ESTILOS DEL MODAL DE NOTAS (TIPO TARJETA) --- */
+/* --- ESTILOS DEL MODAL DE NOTAS (TIPO TARJETA CUTE) --- */
 .librito-modal {
-  background-color: #87418b !important; /* Volvemos al color de tus tarjetas */
-  border: 0.3rem double #41061e !important;
+  background-color: #fce8f3 !important; 
+  border: 0.2rem solid #da88b9 !important; 
   border-radius: 1rem !important;
-  box-shadow: 0.2rem 0.2rem 0.8rem 0 rgba(34, 14, 19, 0.3) !important;
+  box-shadow: 0.5rem 0.5rem 1.5rem rgba(0, 0, 0, 0.4) !important;
   padding: 0 !important;
   max-width: 28rem;
-  overflow: hidden; /* Evita que la animación se salga de los bordes */
+  overflow: hidden; 
 }
 
 .controles-libro {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: var(--dark-color);
   padding: 1rem;
-  border-bottom: 2px solid rgba(244, 187, 207, 0.2);
+  border-bottom: 2px dashed #da88b9; 
 }
 
 .titulo-libro {
@@ -548,23 +586,22 @@ div.swal2-popup {
 }
 
 .btn-pagina {
-  background: rgba(244, 187, 207, 0.1);
-  border: 1px solid rgba(244, 187, 207, 0.3);
+  background: rgba(244, 187, 207, 0.2);
+  border: 1px solid rgba(244, 187, 207, 0.4);
   color: #fccbed;
   padding: 0.5rem 0.8rem;
-  border-radius: 2rem; /* Botones redonditos como los tuyos */
+  border-radius: 2rem; 
   cursor: pointer;
   font-family: inherit;
   font-weight: bold;
-  transition: all 0.2s;
+  transition: all ease 0.1s;
 }
 
 .btn-pagina:hover {
-  background: rgba(244, 187, 207, 0.3);
+  background: rgba(253, 153, 188, 0.418);
   transform: scale(1.05);
 }
 
-/* LA TARJETA EN SÍ */
 .pagina-fisica {
   background-color: transparent; 
   height: 50vh;
@@ -582,14 +619,14 @@ div.swal2-popup {
 }
 
 .numero-capitulo {
-  color: #fccbed;
-  border-bottom: 1px solid rgba(244, 187, 207, 0.2);
+  color: var(--dark-color); 
+  border-bottom: 2px dashed #da88b9;
   padding-bottom: 0.5rem;
   margin-top: 0;
 }
 
 .texto-nota-largo {
-  color: rgba(255, 255, 255, 0.9);
+  color: #333; 
   font-size: 1rem;
   line-height: 1.6;
   white-space: pre-wrap; 
@@ -600,16 +637,18 @@ div.swal2-popup {
 .textarea-nota {
   min-height: 120px;
   resize: vertical;
+  color: #333 !important; 
+  background-color: rgba(255, 255, 255, 0.6) !important; 
+  border: 1px solid #da88b9 !important;
 }
 
-/* --- ANIMACIONES DE DESLIZAR (CARRUSEL) --- */
-.deslizando-adelante { animation: slideNext 0.4s ease-in-out forwards; }
-.deslizando-atras { animation: slidePrev 0.4s ease-in-out forwards; }
+.deslizando-adelante { animation: slideNext 0.35s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+.deslizando-atras { animation: slidePrev 0.35s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
 
 @keyframes slideNext {
   0% { transform: translateX(0); opacity: 1; }
   49% { transform: translateX(-30px); opacity: 0; }
-  50% { transform: translateX(30px); opacity: 0; } /* Aquí cambia el texto */
+  50% { transform: translateX(30px); opacity: 0; } 
   100% { transform: translateX(0); opacity: 1; }
 }
 

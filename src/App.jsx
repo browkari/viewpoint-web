@@ -213,24 +213,29 @@ function App() {
   }
 
   async function eliminarLectura(id) {
-    // 1. Usamos SweetAlert con tus colores personalizados
     const confirmacion = await Swal.fire({
       title: '¿Eliminar lectura?',
-      text: "¡Esta acción no se puede deshacer! 😿",
+      text: "¡Esta acción no se puede deshacer y borrará también tus notas! 😿",
       icon: 'warning',
-      background: '#4b1535a9', // Tu color oscuro de fondo
-      color: '#fccbed',      // Tu color rosado para el texto
+      background: '#4b1535a9', 
+      color: '#fccbed',      
       showCancelButton: true,
-      confirmButtonColor: '#b83d5c', // Botón rojo/vinotinto
-      cancelButtonColor: '#87418b',  // Botón morado
-      confirmButtonText: 'Sí, borrar',
+      confirmButtonColor: '#b83d5c', 
+      cancelButtonColor: '#87418b',  
+      confirmButtonText: 'Sí, borrar todo',
       cancelButtonText: 'Cancelar'
     });
 
-    // Si la persona le da a cancelar, detenemos todo
     if (!confirmacion.isConfirmed) return;
 
-    // 2. Si aceptó, borramos en la base de datos
+    // --- ¡LA SOLUCIÓN! ---
+    // 1. PRIMERO: Le decimos a Supabase que borre todas las notas asociadas a esta lectura
+    await supabase
+      .from('notas_lectura')
+      .delete()
+      .eq('lectura_id', id);
+
+    // 2. SEGUNDO: Ahora que está limpia, procedemos a borrar la tarjeta principal
     const { error } = await supabase
       .from('mi_entretenimiento')
       .delete()
@@ -240,22 +245,22 @@ function App() {
       console.error("Error al eliminar:", error);
       Swal.fire({
         title: 'Error',
-        text: 'Hubo un problema al borrar.',
+        text: 'Hubo un problema al borrar en la base de datos.',
         icon: 'error',
         background: '#4b1535a9',
         color: '#fccbed'
       });
     } else {
       obtenerLecturas();
-      // Opcional: Mensajito de éxito
+      
       Swal.fire({
         title: '¡Eliminada!',
-        text: 'La tarjeta desapareció en el vacío.',
+        text: 'La tarjeta y sus notas desaparecieron en el vacío.',
         icon: 'success',
         background: '#4b1535a9',
         color: '#fccbed',
-        confirmButtonColor: '#e48e67', // Tu botón naranja
-        timer: 2000, // Se cierra sola en 2 segundos
+        confirmButtonColor: '#e48e67', 
+        timer: 2000, 
         showConfirmButton: false
       });
     }
