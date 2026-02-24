@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Swal from 'sweetalert2'
 import { supabase } from './supabase' 
 import './App.css'
 
@@ -13,8 +14,12 @@ function App() {
   const [esRegistro, setEsRegistro] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [modalAbierto, setModalAbierto] = useState(false)
+ // --- NUEVOS ESTADOS PARA EL FILTRO DE ESTADO ---
+  const [estadoFiltro, setEstadoFiltro] = useState('Todos');
+  const [menuEstadoAbierto, setMenuEstadoAbierto] = useState(false);
+  const estadosFiltro = ['Todos', 'Pendiente', 'En progreso', 'Pausado', 'Completado'];
   
-  const categoriasFiltro = ['Todo', 'Manhwa', 'Novela', 'Anime', 'Serie']
+  const categoriasFiltro = ['Todo', 'Manhwa', 'Novela', 'Anime', 'Serie', 'Pelicula']
   
   const [nuevaLectura, setNuevaLectura] = useState({
     titulo: '',
@@ -45,9 +50,17 @@ function App() {
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setSesion(session))
-    obtenerLecturas()
-  }, [])
+    supabase.auth.getSession().then(({ data: { session } }) => setSesion(session));
+  }, []);
+
+  // vigila la sesion
+  useEffect(() => {
+    if (sesion) {
+      obtenerLecturas(); 
+    } else {
+      setLecturas([]); // limpiar panmtalla si no hay sesion
+    }
+  }, [sesion]);
 
   async function obtenerLecturas() {
     const { data, error } = await supabase
@@ -57,15 +70,59 @@ function App() {
     else setLecturas(data)
   }
 
-  async function sumarCapitulo(id, progresoActual) {
-    const nuevoProgreso = progresoActual + 1
-    const { error } = await supabase
-      .from('mi_entretenimiento')
-      .update({ progreso_actual: nuevoProgreso })
-      .eq('id', id)
-    if (error) console.error("Hubo un error al guardar:", error)
-    else obtenerLecturas()
-  }
+  // FUNCION DE SUMAR CAPITULO
+      async function sumarCapitulo(id, progresoActual, progresoTotal, estadoActual) {
+        // 1. Evitamos que pase del límite
+        if (progresoTotal && progresoActual >= progresoTotal) {
+          Swal.fire({
+              title: '¡Límite alcanzado!',
+              text: 'No puedes sumar más capítulos. 🎉',
+              icon: 'info',
+              background: '#4b1535a9',
+              color: '#fccbed',
+              confirmButtonColor: '#e48e67'
+            });
+          return; 
+        }
+
+      
+        const nuevoProgreso = progresoActual + 1;
+        
+        // 2. Preparamos una "cajita" con los datos a guardar
+        let datosParaActualizar = { 
+          progreso_actual: nuevoProgreso 
+        };
+
+        // 3. La lógica automática
+        if (progresoTotal && nuevoProgreso >= progresoTotal) {
+          datosParaActualizar.estado = 'Completado';
+          Swal.fire({
+              title: '¡Felicidades!',
+              text: 'Has terminado esta lectura. ✨',
+              icon: 'success',
+              background: '#4b1535a9',
+              color: '#fccbed',
+              borderradius: '1rem',
+              confirmButtonColor: '#e48e67'
+            });
+            
+        } else if (estadoActual === 'Pendiente') {
+          // Si apenas vas a empezar a leerlo, lo pasamos a En progreso
+          datosParaActualizar.estado = 'En progreso';
+        }
+
+        // 4. Enviamos la cajita a Supabase
+        const { error } = await supabase
+          .from('mi_entretenimiento')
+          .update(datosParaActualizar)
+          .eq('id', id); 
+
+        if (error) {
+          console.error("Hubo un error al guardar:", error);
+        } else {
+          obtenerLecturas();
+        }
+      }
 
   function iniciarEdicion(item) {
     setEditandoId(item.id)
@@ -91,18 +148,72 @@ function App() {
     }
   }
 
+  async function eliminarLectura(id) {
+    // 1. Usamos SweetAlert con tus colores personalizados
+    const confirmacion = await Swal.fire({
+      title: '¿Eliminar lectura?',
+      text: "¡Esta acción no se puede deshacer! 😿",
+      icon: 'warning',
+      background: '#4b1535a9', // Tu color oscuro de fondo
+      color: '#fccbed',      // Tu color rosado para el texto
+      showCancelButton: true,
+      confirmButtonColor: '#b83d5c', // Botón rojo/vinotinto
+      cancelButtonColor: '#87418b',  // Botón morado
+      confirmButtonText: 'Sí, borrar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    // Si la persona le da a cancelar, detenemos todo
+    if (!confirmacion.isConfirmed) return;
+
+    // 2. Si aceptó, borramos en la base de datos
+    const { error } = await supabase
+      .from('mi_entretenimiento')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error("Error al eliminar:", error);
+      Swal.fire({
+        title: 'Error',
+        text: 'Hubo un problema al borrar.',
+        icon: 'error',
+        background: '#4b1535a9',
+        color: '#fccbed'
+      });
+    } else {
+      obtenerLecturas();
+      // Opcional: Mensajito de éxito
+      Swal.fire({
+        title: '¡Eliminada!',
+        text: 'La tarjeta desapareció en el vacío.',
+        icon: 'success',
+        background: '#4b1535a9',
+        color: '#fccbed',
+        confirmButtonColor: '#e48e67', // Tu botón naranja
+        timer: 2000, // Se cierra sola en 2 segundos
+        showConfirmButton: false
+      });
+    }
+  }
   async function agregarLectura(e) {
     e.preventDefault()
+    
+    // Agregamos el user_id sacándolo de la sesión actual
     const lecturaParaGuardar = {
       ...nuevaLectura,
+      user_id: sesion.user.id, // ¡ESTA ES LA LLAVE MÁGICA!
       progreso_actual: Number(nuevaLectura.progreso_actual),
       progreso_total: nuevaLectura.progreso_total ? Number(nuevaLectura.progreso_total) : null
     }
+
     const { error } = await supabase
       .from('mi_entretenimiento')
       .insert([lecturaParaGuardar])
-    if (error) console.error("Error al agregar:", error)
-    else {
+
+    if (error) {
+      console.error("Error al agregar:", error)
+    } else {
       obtenerLecturas()
       setNuevaLectura({ titulo: '', categoria: 'Manhwa', progreso_actual: 0, progreso_total: '', estado: 'Pendiente', imagen_url: '' })
       setModalAbierto(false)
@@ -114,11 +225,20 @@ function App() {
   }
 
   const lecturasFiltradas = lecturas.filter(item => {
-    const coincideCategoria = filtroActivo === 'Todo' || item.categoria === filtroActivo
-    const tituloLimpio = normalizarTexto(item.titulo)
-    const busquedaLimpia = normalizarTexto(busqueda)
-    return coincideCategoria && tituloLimpio.includes(busquedaLimpia)
-  })
+    // 1. Revisa la categoría
+    const coincideCategoria = filtroActivo === 'Todo' || item.categoria === filtroActivo;
+    
+    // 2. NUEVO: Revisa el estado (Completado, Pendiente, etc.)
+    const coincideEstado = estadoFiltro === 'Todos' || item.estado === estadoFiltro;
+    
+    // 3. Revisa la búsqueda por texto
+    const tituloLimpio = normalizarTexto(item.titulo);
+    const busquedaLimpia = normalizarTexto(busqueda);
+    const coincideBusqueda = tituloLimpio.includes(busquedaLimpia);
+    
+    // Solo muestra la tarjeta si pasa los 3 filtros a la vez
+    return coincideCategoria && coincideEstado && coincideBusqueda;
+  });
 
   return (
     <div className="app-container">
@@ -126,6 +246,7 @@ function App() {
         <div className="modal-fondo modal-fondo-registro">
           <form className="modal-contenido-registro" onSubmit={esRegistro ? registrarse : iniciarSesion}>
             <h2>{esRegistro ? 'Crear Cuenta' : 'Viewpoint Login'}</h2>
+            <img  className="modal-fondo-gif" src="iniciarsesion.gif" alt=""/>
             <div className="grupo-inputs-modal">
               <input 
                 className="input-editar" 
@@ -159,6 +280,7 @@ function App() {
             <div className="navbar-logo">
               <h1>🐈 Viewpoint</h1>
             </div>
+            
             <nav className="navbar-links">
               {categoriasFiltro.map(cat => (
                 <button
@@ -170,7 +292,38 @@ function App() {
                 </button>
               ))}
             </nav>
-            <div className="navbar-actions">
+
+            {/* Agrupamos la hamburguesa y el botón de agregar para que no rompan el diseño */}
+            <div className="navbar-actions" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              
+              {/* --- MENÚ HAMBURGUESA --- */}
+              <div className="menu-estados-container" style={{ position: 'relative' }}>
+                <button 
+                  className="btn-hamburguesa" 
+                  onClick={() => setMenuEstadoAbierto(!menuEstadoAbierto)}
+                  title="Filtrar por estado"
+                >
+                  ☰
+                </button>
+                
+                {menuEstadoAbierto && (
+                  <div className="dropdown-estados">
+                    {estadosFiltro.map(est => (
+                      <button
+                        key={est}
+                        className={`dropdown-item ${estadoFiltro === est ? 'activo' : ''}`}
+                        onClick={() => {
+                          setEstadoFiltro(est);
+                          setMenuEstadoAbierto(false); // Se cierra al elegir
+                        }}
+                      >
+                        {est}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
               <button className="btn-abrir-modal" onClick={() => setModalAbierto(true)}>
                 + Agregar Nuevo
               </button>
@@ -214,6 +367,9 @@ function App() {
                         <option value="Novela">Novela</option>
                         <option value="Anime">Anime</option>
                         <option value="Serie">Serie</option>
+                        <option value="Donghua">Donghua</option>
+                        <option value="Pelicula">Pelicula</option>
+              
                       </select>
                       <select className="select-editar " value={datosEdicion.estado} onChange={(e) => setDatosEdicion({...datosEdicion, estado: e.target.value})}>
                         <option value="En progreso">En progreso</option>
@@ -222,12 +378,14 @@ function App() {
                         <option value="Pendiente">Pendiente</option>
                       </select>
                     </div>
+                    {datosEdicion.categoria !== 'Pelicula' && (
                     <div className="grupo-inputs grupo-inputs-editar">
                       <label className="label-editar">Cap:</label>
                       <input type="number" className="input-numero" value={datosEdicion.progreso_actual} onChange={(e) => setDatosEdicion({...datosEdicion, progreso_actual: Number(e.target.value)})}/>
                       <label className="label-editar">de</label>
                       <input type="number" className="input-numero" value={datosEdicion.progreso_total} onChange={(e) => setDatosEdicion({...datosEdicion, progreso_total: Number(e.target.value)})}/>
                     </div>
+                    )}
                     <div className="grupo-botones">
                       <button className="btn-guardar" onClick={() => guardarEdicion(item.id)}>Guardar</button>
                       <button className="btn-cancelar" onClick={() => setEditandoId(null)}>Cancelar</button>
@@ -235,20 +393,29 @@ function App() {
                   </div>
                 ) : (
                   <>
+                  
                     <h3>{item.titulo}</h3>
                     <div className="img-tarjeta-cuerpo">
                       {item.imagen_url ? <img src={item.imagen_url} alt={item.titulo} className="portada-img" /> : <div className="portada-placeholder">Sin portada 🐈</div>}
                       <div className='texto-lectura'>
                         <p><strong>Categoría:</strong> {item.categoria}</p>
-                        <p><strong>Progreso:</strong> Cap. {item.progreso_actual} / {item.progreso_total || '?'}</p>
+                        <p><strong>Progreso:</strong> {item.categoria === 'Pelicula' ? 'Película única' : `Cap. ${item.progreso_actual} / ${item.progreso_total || '?'}`}</p>
                         <p><strong>Estado:</strong> {item.estado}</p>
                       </div>
                     </div>
                     <div className="grupo-botones">
-                      <button className="btn-sumar" onClick={() => sumarCapitulo(item.id, item.progreso_actual)}>+1 Capitulo</button>
+                      {item.categoria !== 'Pelicula' && (
+                        <button 
+                          className="btn-sumar" 
+                          onClick={() => sumarCapitulo(item.id, item.progreso_actual, item.progreso_total, item.estado)}
+                        >
+                          +1 Capitulo
+                        </button>
+                      )}
                       <button className="btn-editar" onClick={() => iniciarEdicion(item)}>
-                        <img src="src/assets/editarboton.png" alt="editar" />
+                        <img src="editarboton.png" alt="editar" />
                       </button>
+                      <button className="btn-eliminar" onClick={() => eliminarLectura(item.id)} title="Eliminar"> 🗑️ </button>
                     </div>
                   </>
                 )}
@@ -272,17 +439,26 @@ function App() {
                     <select className="select-editar" value={nuevaLectura.categoria} onChange={(e) => setNuevaLectura({...nuevaLectura, categoria: e.target.value})}>
                       <option value="Manhwa">Manhwa</option>
                       <option value="Novela">Novela</option>
+                      <option value="Donghua">Donghua</option>
                       <option value="Anime">Anime</option>
+                      <option value="Serie">Serie</option>
+                      <option value="Pelicula">Película</option>
                     </select>
                     <select className="select-editar" value={nuevaLectura.estado} onChange={(e) => setNuevaLectura({...nuevaLectura, estado: e.target.value})}>
-                      <option value="Pendiente">Pendiente</option>
-                      <option value="En progreso">En progreso</option>
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="En progreso">En progreso</option>
+                        <option value="Pausado">Pausado</option>
+                        <option value="Completado">Completado</option>
                     </select>
                   </div>
+                  {nuevaLectura.categoria !== 'Pelicula' && (
                   <div className="grupo-inputs">
+                    <label className="label-editar">Cap: </label>
                     <input type="number" className="input-numero" value={nuevaLectura.progreso_actual} onChange={(e) => setNuevaLectura({...nuevaLectura, progreso_actual: e.target.value})} />
+                    <label className="label-editar">de: </label>
                     <input type="number" className="input-numero" placeholder="Total" value={nuevaLectura.progreso_total} onChange={(e) => setNuevaLectura({...nuevaLectura, progreso_total: e.target.value})} />
                   </div>
+                  )}
                   <button type="submit" className="btn-guardar">Guardar</button>
                 </form>
               </div>
