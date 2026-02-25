@@ -16,12 +16,15 @@ function App() {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [lecturaAbierta, setLecturaAbierta] = useState(null); 
   const [notas, setNotas] = useState([]);
-  const [nuevaNota, setNuevaNota] = useState({ capitulo: '', texto: '' });
+  const [editandoNota, setEditandoNota] = useState(false);
+  const [nuevaNota, setNuevaNota] = useState({ id: null, capitulo: '', texto: '' });
   const [estadoFiltro, setEstadoFiltro] = useState('Todos');
   const [menuEstadoAbierto, setMenuEstadoAbierto] = useState(false);
   const [capituloActual, setCapituloActual] = useState(1);
-  const [claseAnimacion, setClaseAnimacion] = useState(''); // Controla el CSS de pasar página
+  const [claseAnimacion, setClaseAnimacion] = useState(''); 
   const estadosFiltro = ['Todos', 'Pendiente', 'En progreso', 'Pausado', 'Completado'];
+  const [archivoImagen, setArchivoImagen] = useState(null);
+  const [subiendo, setSubiendo] = useState(false); 
   
   const categoriasFiltro = ['Todo', 'Manhwa', 'Novela', 'Anime', 'Serie', 'Pelicula']
   
@@ -36,6 +39,8 @@ function App() {
 
   // --- LÓGICA DEL LIBRITO ---
   async function abrirLibrito(item) {
+    setEditandoNota(false);
+    setNuevaNota({ id: null, capitulo: '', texto: '' });
     setLecturaAbierta(item);
     setCapituloActual(1); // ¡NUEVO! Siempre abre el libro en el cap 1
     
@@ -49,30 +54,44 @@ function App() {
     else setNotas(data);
   }
 
-  // Guardar una nota nueva (Ahora recibe el capitulo exacto por parámetro)
-  async function guardarNota(e, capituloFijo) {
-    e.preventDefault();
-    
-    const notaParaGuardar = {
-      lectura_id: lecturaAbierta.id,
-      user_id: sesion.user.id,
-      capitulo: capituloFijo, // ¡Solución al bug!
-      texto: nuevaNota.texto
-    };
-
-    const { error } = await supabase
-      .from('notas_lectura')
-      .insert([notaParaGuardar]);
-
-    if (error) {
-      console.error("Error al guardar nota:", error);
-    } else {
-      setNuevaNota({ capitulo: '', texto: '' }); 
-      abrirLibrito(lecturaAbierta); 
-    }
+  function abrirEdicionNota(notaVieja) {
+    setNuevaNota({ id: notaVieja.id, capitulo: notaVieja.capitulo, texto: notaVieja.texto });
+    setEditandoNota(true);
   }
 
-  // Función para cambiar de tarjeta deslizándola
+  // Guardar o Actualizar la nota
+  async function guardarNota(e, capituloFijo) {
+    e.preventDefault();
+
+    if (editandoNota && nuevaNota.id) {
+    
+      const { error } = await supabase
+        .from('notas_lectura')
+        .update({ texto: nuevaNota.texto })
+        .eq('id', nuevaNota.id);
+
+      if (error) console.error("Error al actualizar nota:", error);
+    } else {
+
+      const notaParaGuardar = {
+        lectura_id: lecturaAbierta.id,
+        user_id: sesion.user.id,
+        capitulo: capituloFijo,
+        texto: nuevaNota.texto
+      };
+
+      const { error } = await supabase
+        .from('notas_lectura')
+        .insert([notaParaGuardar]);
+
+      if (error) console.error("Error al guardar nota:", error);
+    }
+
+    setNuevaNota({ id: null, capitulo: '', texto: '' }); 
+    setEditandoNota(false);
+    abrirLibrito(lecturaAbierta); 
+  }
+
   const cambiarPagina = (direccion) => {
     if (!lecturaAbierta) return;
     
@@ -82,7 +101,8 @@ function App() {
 
     if (direccion > 0 && capituloActual >= limiteCapitulos) return;
     if (direccion < 0 && capituloActual <= 1) return;
-
+    setEditandoNota(false);
+    setNuevaNota({ id: null, capitulo: '', texto: '' });
     // Cambiamos los nombres de las clases a "deslizando"
     setClaseAnimacion(direccion > 0 ? 'deslizando-adelante' : 'deslizando-atras');
     
@@ -126,6 +146,29 @@ function App() {
       setLecturas([]); // limpiar pantalla si no hay sesion
     }
   }, [sesion]);
+
+  async function subirImagen(file) {
+    if (!file) return null;
+    
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `${sesion.user.id}/${fileName}`; 
+
+    const { error: uploadError } = await supabase.storage
+      .from('portadas')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error("Error al subir imagen:", uploadError);
+      return null;
+    }
+
+    const { data } = supabase.storage
+      .from('portadas')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  }
 
   async function obtenerLecturas() {
     const { data, error } = await supabase
@@ -201,15 +244,28 @@ function App() {
   }
 
   async function guardarEdicion(id) {
-    const { error } = await supabase
-      .from('mi_entretenimiento')
-      .update(datosEdicion)
-      .eq('id', id)
-    if (error) console.error("Error al editar:", error)
-    else {
-      setEditandoId(null)
-      obtenerLecturas()
+    setSubiendo(true);
+    let urlFinal = datosEdicion.imagen_url;
+
+    if (archivoImagen) {
+      const urlSubida = await subirImagen(archivoImagen);
+      if (urlSubida) urlFinal = urlSubida;
     }
+
+    const datosParaActualizar = {
+      ...datosEdicion,
+      imagen_url: urlFinal
+    };
+
+    const { error } = await supabase.from('mi_entretenimiento').update(datosParaActualizar).eq('id', id);
+    
+    if (error) console.error("Error al editar:", error);
+    else {
+      setEditandoId(null);
+      setArchivoImagen(null); // Limpiamos
+      obtenerLecturas();
+    }
+    setSubiendo(false);
   }
 
   async function eliminarLectura(id) {
@@ -267,27 +323,35 @@ function App() {
   }
 
   async function agregarLectura(e) {
-    e.preventDefault()
+    e.preventDefault();
+    setSubiendo(true); // Bloqueamos temporalmente
     
-    // Agregamos el user_id sacándolo de la sesión actual
+    let urlFinal = nuevaLectura.imagen_url;
+
+    // Si la persona seleccionó un archivo de su compu/celular, lo subimos
+    if (archivoImagen) {
+      const urlSubida = await subirImagen(archivoImagen);
+      if (urlSubida) urlFinal = urlSubida;
+    }
+
     const lecturaParaGuardar = {
       ...nuevaLectura,
-      user_id: sesion.user.id, // ¡ESTA ES LA LLAVE MÁGICA!
+      imagen_url: urlFinal, // Usamos la URL nueva o la que haya escrito
+      user_id: sesion.user.id,
       progreso_actual: Number(nuevaLectura.progreso_actual),
       progreso_total: nuevaLectura.progreso_total ? Number(nuevaLectura.progreso_total) : null
-    }
+    };
 
-    const { error } = await supabase
-      .from('mi_entretenimiento')
-      .insert([lecturaParaGuardar])
+    const { error } = await supabase.from('mi_entretenimiento').insert([lecturaParaGuardar]);
 
-    if (error) {
-      console.error("Error al agregar:", error)
-    } else {
-      obtenerLecturas()
-      setNuevaLectura({ titulo: '', categoria: 'Manhwa', progreso_actual: 0, progreso_total: '', estado: 'Pendiente', imagen_url: '' })
-      setModalAbierto(false)
+    if (error) console.error("Error al agregar:", error);
+    else {
+      obtenerLecturas();
+      setNuevaLectura({ titulo: '', categoria: 'Manhwa', progreso_actual: 0, progreso_total: '', estado: 'Pendiente', imagen_url: '' });
+      setArchivoImagen(null); // Limpiamos el archivo
+      setModalAbierto(false);
     }
+    setSubiendo(false);
   }
 
   const normalizarTexto = (texto) => {
@@ -424,12 +488,17 @@ function App() {
                       />
                     </div>
                     <div className='grupo-inputs grupo-inputs-editar'>
-                      <label className="label-editar">Link img: </label>
-                      <input 
-                        className="input-editar"
-                        value={datosEdicion.imagen_url} 
-                        onChange={(e) => setDatosEdicion({...datosEdicion, imagen_url: e.target.value})}
-                      />
+                      <div className="grupo-inputs" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <input className="input-editar" placeholder="URL Imagen (opcional si subes archivo)" value={datosEdicion.imagen_url} onChange={(e) => setDatosEdicion({...datosEdicion, imagen_url: e.target.value})} />
+                    <label className="label-editar" style={{ marginTop: '0.5rem' }}>O sube una desde tu dispositivo:</label>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="input-editar" 
+                      onChange={(e) => setArchivoImagen(e.target.files[0])} 
+                      style={{ padding: '0.4rem' }}
+                    />
+                  </div>
                     </div>
                     <div className="grupo-inputs grupo-inputs-editar">
                       <select className="select-editar" value={datosEdicion.categoria} onChange={(e) => setDatosEdicion({...datosEdicion, categoria: e.target.value})}>
@@ -457,7 +526,9 @@ function App() {
                     </div>
                     )}
                     <div className="grupo-botones">
-                      <button className="btn-guardar" onClick={() => guardarEdicion(item.id)}>Guardar</button>
+                      <button type="submit" className="btn-guardar" disabled={subiendo}>
+                        {subiendo ? 'Subiendo... ⏳' : 'Guardar'}
+                      </button>
                       <button className="btn-cancelar" onClick={() => setEditandoId(null)}>Cancelar</button>
                       <button className="btn-eliminar" onClick={() => eliminarLectura(item.id)} title="Eliminar"> 🗑️ Eliminar </button>
                     </div>
@@ -507,7 +578,17 @@ function App() {
                 <form className="formulario-nuevo" onSubmit={agregarLectura}>
                   <h3>📥 Agregar Nuevo</h3>
                   <input className="input-editar" placeholder="Título" value={nuevaLectura.titulo} onChange={(e) => setNuevaLectura({...nuevaLectura, titulo: e.target.value})} required />
-                  <input className="input-editar" placeholder="URL Imagen" value={nuevaLectura.imagen_url} onChange={(e) => setNuevaLectura({...nuevaLectura, imagen_url: e.target.value})} />
+                  <div className="grupo-inputs" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <input className="input-editar" placeholder="URL Imagen (opcional si subes archivo)" value={nuevaLectura.imagen_url} onChange={(e) => setNuevaLectura({...nuevaLectura, imagen_url: e.target.value})} />
+                    <label className="label-editar" style={{ marginTop: '0.5rem' }}>O sube una desde tu dispositivo:</label>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="input-editar" 
+                      onChange={(e) => setArchivoImagen(e.target.files[0])} 
+                      style={{ padding: '0.4rem' }}
+                    />
+                  </div>
                   <div className="grupo-inputs">
                     <select className="select-editar" value={nuevaLectura.categoria} onChange={(e) => setNuevaLectura({...nuevaLectura, categoria: e.target.value})}>
                       <option value="Manhwa">Manhwa</option>
@@ -532,7 +613,9 @@ function App() {
                     <input type="number" className="input-numero" placeholder="Total" value={nuevaLectura.progreso_total} onChange={(e) => setNuevaLectura({...nuevaLectura, progreso_total: e.target.value})} />
                   </div>
                   )}
-                  <button type="submit" className="btn-guardar">Guardar</button>
+                      <button type="submit" className="btn-guardar" disabled={subiendo}>
+                        {subiendo ? 'Subiendo... ⏳' : 'Guardar'}
+                      </button>
                 </form>
               </div>
             </div>
@@ -540,78 +623,108 @@ function App() {
         </>
       )}
       
-      {/* --- MODAL DEL LIBRITO DE NOTAS (ESTILO LIBRETA) --- */}
+      {/* --- MODAL DEL LIBRITO DE NOTAS --- */}
       {lecturaAbierta && (
         <div className="modal-fondo">
-          <button className="btn-cerrar-modal" onClick={() => setLecturaAbierta(null)}>✖</button>
-          <div className="modal-contenido librito-modal">
+          
+          {/* NUEVO: Una caja invisible para agrupar el botón y el modal */}
+          <div style={{ position: 'relative', width: '90%', maxWidth: '28rem' }}>
             
-            {/* Controles del libro (Arriba) */}
-            <div className="controles-libro">
-              <button 
-                className="btn-pagina" 
-                onClick={() => cambiarPagina(-1)}
-                style={{ visibility: capituloActual > 1 ? 'visible' : 'hidden' }}
-              >
-                ◀ Ant
-              </button>
-              
-              <h2 className="titulo-libro">📖 {lecturaAbierta.titulo}</h2>
-              
-              <button 
-                className="btn-pagina" 
-                onClick={() => cambiarPagina(1)}
-                style={{ 
-                  visibility: capituloActual < (lecturaAbierta.categoria === 'Pelicula' ? 1 : Math.max(1, lecturaAbierta.progreso_actual)) 
-                    ? 'visible' 
-                    : 'hidden' 
-                }}
-              >
-                Sig ▶
-              </button>
-            </div>
+            {/* El botón ahora está AFUERA del librito-modal, pero anclado a la caja invisible */}
+            <button className="btn-cerrar-afuera" onClick={() => setLecturaAbierta(null)}>
+              ✖
+            </button>
 
-            {/* La Página Física (Aquí ocurre la animación) */}
-            <div className={`pagina-fisica ${claseAnimacion}`}>
+            {/* Le decimos al modal que ocupe el 100% de esta caja nueva */}
+            <div className="modal-contenido librito-modal" style={{ width: '100%', maxWidth: 'none' }}>
               
-              <div className="contenido-pagina">
-                <h3 className="numero-capitulo">
-                  {lecturaAbierta.categoria === 'Pelicula' 
-                    ? 'Reseña de la Película' 
-                    : `Capítulo ${capituloActual}`}
-                </h3>
-                {/* Buscamos si hay una nota para este capítulo en específico */}
-                {(() => {
-                  const notaDelCapitulo = notas.find(n => n.capitulo === capituloActual);
+              {/* Controles del libro (Arriba) */}
+              <div className="controles-libro">
+                <button 
+                  className="btn-pagina" 
+                  onClick={() => cambiarPagina(-1)}
+                  style={{ visibility: capituloActual > 1 ? 'visible' : 'hidden' }}
+                >
+                  ◀ Ant
+                </button>
+                
+                <h2 className="titulo-libro">📖 {lecturaAbierta.titulo}</h2>
+                
+                <button 
+                  className="btn-pagina" 
+                  onClick={() => cambiarPagina(1)}
+                  style={{ 
+                    visibility: capituloActual < (lecturaAbierta.categoria === 'Pelicula' ? 1 : Math.max(1, lecturaAbierta.progreso_actual)) 
+                      ? 'visible' 
+                      : 'hidden' 
+                  }}
+                >
+                  Sig ▶
+                </button>
+              </div>
+
+              {/* La Página Física (Aquí ocurre la animación) */}
+              <div className={`pagina-fisica ${claseAnimacion}`}>
+                <div className="contenido-pagina">
+                  <h3 className="numero-capitulo">
+                    {lecturaAbierta.categoria === 'Pelicula' 
+                      ? 'Reseña de la Película' 
+                      : `Capítulo ${capituloActual}`}
+                  </h3>
                   
-                  if (notaDelCapitulo) {
-                    return (
-                      <div className="texto-nota-largo">
-                        {notaDelCapitulo.texto}
-                      </div>
-                    );
-                  } else {
-                    return (
-                      <form className="formulario-nuevo" onSubmit={(e) => guardarNota(e, capituloActual)}>
-                        <textarea 
-                          className="input-editar textarea-nota" 
-                          placeholder={lecturaAbierta.categoria === 'Pelicula' 
-                            ? "Escribe tus notas sobre la película aquí..." 
-                            : `Escribe tus notas para el capítulo ${capituloActual}...`}
-                          value={nuevaNota.texto}
-                          onChange={(e) => setNuevaNota({...nuevaNota, texto: e.target.value})}
-                          required
-                        />
-                        <button type="submit" className="btn-guardar">Guardar Nota</button>
-                      </form>
-                    );
-                  }
-                })()}
+                  {/* Buscamos si hay una nota para este capítulo en específico */}
+                  {(() => {
+                    const notaDelCapitulo = notas.find(n => n.capitulo === capituloActual);
+                    
+                    if (notaDelCapitulo && !editandoNota) {
+                      return (
+                        <div className="vista-nota">
+                          <div className="texto-nota-largo">
+                            {notaDelCapitulo.texto}
+                          </div>
+                          <div className="grupo-botones" style={{ marginTop: '1rem' }}>
+                            <button className="btn-editar-nota" onClick={() => abrirEdicionNota(notaDelCapitulo)}>
+                              ✏️ Editar
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <form className="formulario-nuevo" onSubmit={(e) => guardarNota(e, capituloActual)}>
+                          <textarea 
+                            className="input-editar textarea-nota" 
+                            placeholder={lecturaAbierta.categoria === 'Pelicula' 
+                              ? "Escribe tus notas sobre la película aquí..." 
+                              : `Escribe tus notas para el capítulo ${capituloActual}...`}
+                            value={nuevaNota.texto}
+                            onChange={(e) => setNuevaNota({...nuevaNota, texto: e.target.value})}
+                            required
+                          />
+                          <div className="grupo-botones" style={{ marginTop: '1rem' }}>
+                            <button type="submit" className="btn-guardar">
+                              {editandoNota ? 'Actualizar Nota' : 'Guardar Nota'}
+                            </button>
+                            {editandoNota && (
+                              <button type="button" className="btn-cancelar" onClick={() => {
+                                setEditandoNota(false);
+                                setNuevaNota({ id: null, capitulo: '', texto: '' });
+                              }}>
+                                Cancelar
+                              </button>
+                            )}
+                          </div>
+                        </form>
+                      );
+                    }
+                  })()}
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
+      
       
     </div>
   )

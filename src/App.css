@@ -46,6 +46,7 @@
   text-align: left;
   font-family: 'SN Pro';
   font-size: 1.2rem;
+  text-transform: capitalize;
 }
 
 .img-tarjeta-cuerpo {
@@ -365,23 +366,6 @@
   to { transform: scale(1); opacity: 1; }
 }
 
-.btn-cerrar-modal {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: transparent;
-  border: none;
-  color: #da88b9;
-  font-size: 1.2rem;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.btn-cerrar-modal:hover {
-  transform: scale(1.2);
-  color: var(--primary-color);
-}
-
 .btn-abrir-modal {
   background-color: #e48e67;
   color: var(--dark-color);
@@ -657,4 +641,56 @@ div.swal2-popup {
   49% { transform: translateX(30px); opacity: 0; }
   50% { transform: translateX(-30px); opacity: 0; }
   100% { transform: translateX(0); opacity: 1; }
+}
+
+.btn-editar-nota {
+  background-color: var(--secundary-color);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 2rem;
+  cursor: pointer;
+  font-family: 'SN Pro', sans-serif;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+}
+
+.btn-editar-nota:hover {
+  filter: brightness(1.2);
+  transform: translateY(-0.1rem);
+}
+
+.btn-editar-nota:active {
+  transform: scale(0.95);
+}
+
+.btn-cerrar-afuera {
+  position: absolute;
+  top: -2.8rem; 
+  right: 0;     
+  background-color: var(--dark-color);
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%; 
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1010;
+  transition: all 0.2s ease;
+  box-shadow: 0 0.2rem 0.6rem rgba(0,0,0,0.5);
+}
+
+.btn-cerrar-afuera:hover {
+  transform: scale(1.1);
+  background-color: var(--primary-color);
+  color: var(--dark-color);
 }
