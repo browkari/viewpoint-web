@@ -526,8 +526,11 @@ function App() {
                     </div>
                     )}
                     <div className="grupo-botones">
-                      <button type="submit" className="btn-guardar" disabled={subiendo}>
-                        {subiendo ? 'Subiendo... ⏳' : 'Guardar'}
+                      <button 
+                        className="btn-guardar" 
+                        onClick={() => guardarEdicion(item.id)} 
+                        disabled={subiendo}>
+                        {subiendo ? 'Guardando... ⏳' : 'Guardar'}
                       </button>
                       <button className="btn-cancelar" onClick={() => setEditandoId(null)}>Cancelar</button>
                       <button className="btn-eliminar" onClick={() => eliminarLectura(item.id)} title="Eliminar"> 🗑️ Eliminar </button>
