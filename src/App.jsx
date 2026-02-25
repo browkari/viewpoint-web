@@ -413,7 +413,7 @@ function App() {
 
             <div className="navbar-actions" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
               
-              {/* --- MENÚ HAMBURGUESA --- */}
+              
               <div className="menu-estados-container" style={{ position: 'relative' }}>
                 <button 
                   className="btn-hamburguesa" 
@@ -423,6 +423,7 @@ function App() {
                   ☰
                 </button>
                 
+              
                 {menuEstadoAbierto && (
                   <div className="dropdown-estados">
                     {estadosFiltro.map(est => (
@@ -440,10 +441,34 @@ function App() {
                   </div>
                 )}
               </div>
-              
-              <button className="btn-abrir-modal" onClick={() => setModalAbierto(true)}>
+              <div className="Botones-header">
+                <a 
+                href={`https://t.me/viewpoint_web_manager_bot?start=${sesion.user.id}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="btn-telegram"
+                style={{
+                  alignItems: 'center',
+                  backgroundColor: '#0088cc98',
+                  color: 'white',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '1.2rem',
+                  marginBottom: '0.2rem',
+                  textDecoration: 'none',
+                  fontWeight: 'bold',
+                  fontSize: '0.9rem',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}
+                title="Vincular con mi Telegram"
+              >
+                🤖 Vincular Telegram
+              </a>
+                <button className="btn-abrir-modal" onClick={() => setModalAbierto(true)}>
                 + Agregar Nuevo
               </button>
+              
+              </div>
+              
             </div>
           </header>
 

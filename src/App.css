@@ -694,3 +694,8 @@ div.swal2-popup {
   background-color: var(--primary-color);
   color: var(--dark-color);
 }
+
+.Botones-header {
+  display: flex;
+  flex-direction: column;
+}
