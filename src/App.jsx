@@ -42,7 +42,7 @@ function App() {
     setEditandoNota(false);
     setNuevaNota({ id: null, capitulo: '', texto: '' });
     setLecturaAbierta(item);
-    setCapituloActual(1); // ¡NUEVO! Siempre abre el libro en el cap 1
+    setCapituloActual(1);
     
     const { data, error } = await supabase
       .from('notas_lectura')
@@ -103,16 +103,15 @@ function App() {
     if (direccion < 0 && capituloActual <= 1) return;
     setEditandoNota(false);
     setNuevaNota({ id: null, capitulo: '', texto: '' });
-    // Cambiamos los nombres de las clases a "deslizando"
     setClaseAnimacion(direccion > 0 ? 'deslizando-adelante' : 'deslizando-atras');
     
     setTimeout(() => {
       setCapituloActual(prev => prev + direccion); 
-    }, 200); // A los 200ms (mitad del camino), cambiamos el texto
+    }, 200); 
 
     setTimeout(() => {
       setClaseAnimacion('');
-    }, 400); // A los 400ms termina la animación
+    }, 400); 
   };
 
   async function iniciarSesion(e) {
@@ -138,12 +137,11 @@ function App() {
     supabase.auth.getSession().then(({ data: { session } }) => setSesion(session));
   }, []);
 
-  // vigila la sesion
   useEffect(() => {
     if (sesion) {
       obtenerLecturas(); 
     } else {
-      setLecturas([]); // limpiar pantalla si no hay sesion
+      setLecturas([]); 
     }
   }, [sesion]);
 
@@ -180,7 +178,6 @@ function App() {
 
   // FUNCION DE SUMAR CAPITULO
   async function sumarCapitulo(id, progresoActual, progresoTotal, estadoActual) {
-    // 1. Evitamos que pase del límite
     if (progresoTotal && progresoActual >= progresoTotal) {
       Swal.fire({
           title: '¡Límite alcanzado!',
@@ -195,12 +192,10 @@ function App() {
 
     const nuevoProgreso = progresoActual + 1;
     
-    // 2. Preparamos una "cajita" con los datos a guardar
     let datosParaActualizar = { 
       progreso_actual: nuevoProgreso 
     };
 
-    // 3. La lógica automática
     if (progresoTotal && nuevoProgreso >= progresoTotal) {
       datosParaActualizar.estado = 'Completado';
       Swal.fire({
@@ -214,11 +209,9 @@ function App() {
         });
         
     } else if (estadoActual === 'Pendiente') {
-      // Si apenas vas a empezar a leerlo, lo pasamos a En progreso
       datosParaActualizar.estado = 'En progreso';
     }
 
-    // 4. Enviamos la cajita a Supabase
     const { error } = await supabase
       .from('mi_entretenimiento')
       .update(datosParaActualizar)
@@ -262,7 +255,7 @@ function App() {
     if (error) console.error("Error al editar:", error);
     else {
       setEditandoId(null);
-      setArchivoImagen(null); // Limpiamos
+      setArchivoImagen(null); 
       obtenerLecturas();
     }
     setSubiendo(false);
@@ -284,14 +277,11 @@ function App() {
 
     if (!confirmacion.isConfirmed) return;
 
-    // --- ¡LA SOLUCIÓN! ---
-    // 1. PRIMERO: Le decimos a Supabase que borre todas las notas asociadas a esta lectura
     await supabase
       .from('notas_lectura')
       .delete()
       .eq('lectura_id', id);
 
-    // 2. SEGUNDO: Ahora que está limpia, procedemos a borrar la tarjeta principal
     const { error } = await supabase
       .from('mi_entretenimiento')
       .delete()
@@ -324,11 +314,10 @@ function App() {
 
   async function agregarLectura(e) {
     e.preventDefault();
-    setSubiendo(true); // Bloqueamos temporalmente
+    setSubiendo(true); 
     
     let urlFinal = nuevaLectura.imagen_url;
 
-    // Si la persona seleccionó un archivo de su compu/celular, lo subimos
     if (archivoImagen) {
       const urlSubida = await subirImagen(archivoImagen);
       if (urlSubida) urlFinal = urlSubida;
@@ -336,7 +325,7 @@ function App() {
 
     const lecturaParaGuardar = {
       ...nuevaLectura,
-      imagen_url: urlFinal, // Usamos la URL nueva o la que haya escrito
+      imagen_url: urlFinal, 
       user_id: sesion.user.id,
       progreso_actual: Number(nuevaLectura.progreso_actual),
       progreso_total: nuevaLectura.progreso_total ? Number(nuevaLectura.progreso_total) : null
@@ -348,7 +337,7 @@ function App() {
     else {
       obtenerLecturas();
       setNuevaLectura({ titulo: '', categoria: 'Manhwa', progreso_actual: 0, progreso_total: '', estado: 'Pendiente', imagen_url: '' });
-      setArchivoImagen(null); // Limpiamos el archivo
+      setArchivoImagen(null); 
       setModalAbierto(false);
     }
     setSubiendo(false);
@@ -359,23 +348,17 @@ function App() {
   }
 
   const lecturasFiltradas = lecturas.filter(item => {
-    // 1. Revisa la categoría
     const coincideCategoria = filtroActivo === 'Todo' || item.categoria === filtroActivo;
-    
-    // 2. NUEVO: Revisa el estado (Completado, Pendiente, etc.)
     const coincideEstado = estadoFiltro === 'Todos' || item.estado === estadoFiltro;
-    
-    // 3. Revisa la búsqueda por texto
     const tituloLimpio = normalizarTexto(item.titulo);
     const busquedaLimpia = normalizarTexto(busqueda);
     const coincideBusqueda = tituloLimpio.includes(busquedaLimpia);
-    
-    // Solo muestra la tarjeta si pasa los 3 filtros a la vez
     return coincideCategoria && coincideEstado && coincideBusqueda;
   });
 
   return (
     <div className="app-container">
+      {/* Modal de Registrarse he iniciar sesion*/}
       {!sesion ? (
         <div className="modal-fondo modal-fondo-registro">
           <form className="modal-contenido-registro" onSubmit={esRegistro ? registrarse : iniciarSesion}>
@@ -410,6 +393,7 @@ function App() {
         </div>
       ) : (
         <>
+        {/*Barra de Navegacion */}
           <header className="navbar">
             <div className="navbar-logo">
               <h1>🐈 Viewpoint</h1>
@@ -427,7 +411,6 @@ function App() {
               ))}
             </nav>
 
-            {/* Agrupamos la hamburguesa y el botón de agregar para que no rompan el diseño */}
             <div className="navbar-actions" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
               
               {/* --- MENÚ HAMBURGUESA --- */}
@@ -448,7 +431,7 @@ function App() {
                         className={`dropdown-item ${estadoFiltro === est ? 'activo' : ''}`}
                         onClick={() => {
                           setEstadoFiltro(est);
-                          setMenuEstadoAbierto(false); // Se cierra al elegir
+                          setMenuEstadoAbierto(false); 
                         }}
                       >
                         {est}
@@ -473,7 +456,7 @@ function App() {
               onChange={(e) => setBusqueda(e.target.value)}
             />
           </div>
-
+          {/*Config edit */}
           <div className='container container-lecturas'>
             {lecturasFiltradas.map((item) => (
               <div key={item.id} className="tarjeta-lectura">
@@ -487,6 +470,7 @@ function App() {
                         onChange={(e) => setDatosEdicion({...datosEdicion, titulo: e.target.value})}
                       />
                     </div>
+                    
                     <div className='grupo-inputs grupo-inputs-editar'>
                       <div className="grupo-inputs" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
                     <input className="input-editar" placeholder="URL Imagen (opcional si subes archivo)" value={datosEdicion.imagen_url} onChange={(e) => setDatosEdicion({...datosEdicion, imagen_url: e.target.value})} />
@@ -538,6 +522,7 @@ function App() {
                   </div>
                 ) : (
                   <>
+                  {/* Tarjeta estilo */}
                    <h3>{item.titulo}</h3> 
                     
                     <div className="img-tarjeta-cuerpo">
@@ -573,7 +558,7 @@ function App() {
           <button onClick={cerrarSesion} className="btn-cancelar" style={{ position: 'fixed', bottom: '1rem', right: '1rem', zIndex: 100 }}>
             Cerrar Sesión
           </button>
-
+              {/* Modal agregar nuevo */}
           {modalAbierto && (
             <div className="modal-fondo">
               <div className="modal-contenido">
@@ -626,22 +611,20 @@ function App() {
         </>
       )}
       
-      {/* --- MODAL DEL LIBRITO DE NOTAS --- */}
+      {/* Modal librito */}
       {lecturaAbierta && (
         <div className="modal-fondo">
           
-          {/* NUEVO: Una caja invisible para agrupar el botón y el modal */}
+          {/* cajita de boton cerrar y modal */}
           <div style={{ position: 'relative', width: '90%', maxWidth: '28rem' }}>
             
-            {/* El botón ahora está AFUERA del librito-modal, pero anclado a la caja invisible */}
             <button className="btn-cerrar-afuera" onClick={() => setLecturaAbierta(null)}>
               ✖
             </button>
 
-            {/* Le decimos al modal que ocupe el 100% de esta caja nueva */}
             <div className="modal-contenido librito-modal" style={{ width: '100%', maxWidth: 'none' }}>
               
-              {/* Controles del libro (Arriba) */}
+              {/* controles librito */}
               <div className="controles-libro">
                 <button 
                   className="btn-pagina" 
@@ -666,7 +649,6 @@ function App() {
                 </button>
               </div>
 
-              {/* La Página Física (Aquí ocurre la animación) */}
               <div className={`pagina-fisica ${claseAnimacion}`}>
                 <div className="contenido-pagina">
                   <h3 className="numero-capitulo">
@@ -674,8 +656,7 @@ function App() {
                       ? 'Reseña de la Película' 
                       : `Capítulo ${capituloActual}`}
                   </h3>
-                  
-                  {/* Buscamos si hay una nota para este capítulo en específico */}
+                
                   {(() => {
                     const notaDelCapitulo = notas.find(n => n.capitulo === capituloActual);
                     
