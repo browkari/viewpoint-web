@@ -19,12 +19,13 @@ function App() {
   const [editandoNota, setEditandoNota] = useState(false);
   const [nuevaNota, setNuevaNota] = useState({ id: null, capitulo: '', texto: '' });
   const [estadoFiltro, setEstadoFiltro] = useState('Todos');
-  const [menuEstadoAbierto, setMenuEstadoAbierto] = useState(false);
   const [capituloActual, setCapituloActual] = useState(1);
   const [claseAnimacion, setClaseAnimacion] = useState(''); 
   const estadosFiltro = ['Todos', 'Pendiente', 'En progreso', 'Pausado', 'Completado'];
   const [archivoImagen, setArchivoImagen] = useState(null);
   const [subiendo, setSubiendo] = useState(false); 
+  const [menuEstadoAbierto, setMenuEstadoAbierto] = useState(false);
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   
   const categoriasFiltro = ['Todo', 'Manhwa', 'Novela', 'Anime', 'Serie', 'Pelicula']
   
@@ -42,7 +43,9 @@ function App() {
     setEditandoNota(false);
     setNuevaNota({ id: null, capitulo: '', texto: '' });
     setLecturaAbierta(item);
-    setCapituloActual(1);
+    
+    const capInicial = item.categoria === 'Pelicula' ? 1 : Math.max(1, item.progreso_actual);
+    setCapituloActual(capInicial);
     
     const { data, error } = await supabase
       .from('notas_lectura')
@@ -64,7 +67,6 @@ function App() {
     e.preventDefault();
 
     if (editandoNota && nuevaNota.id) {
-    
       const { error } = await supabase
         .from('notas_lectura')
         .update({ texto: nuevaNota.texto })
@@ -72,7 +74,6 @@ function App() {
 
       if (error) console.error("Error al actualizar nota:", error);
     } else {
-
       const notaParaGuardar = {
         lectura_id: lecturaAbierta.id,
         user_id: sesion.user.id,
@@ -89,9 +90,16 @@ function App() {
 
     setNuevaNota({ id: null, capitulo: '', texto: '' }); 
     setEditandoNota(false);
-    abrirLibrito(lecturaAbierta); 
-  }
+    
+    const { data, error } = await supabase
+      .from('notas_lectura')
+      .select('*')
+      .eq('lectura_id', lecturaAbierta.id)
+      .order('capitulo', { ascending: false }); 
 
+    if (error) console.error("Error recargando notas:", error);
+    else setNotas(data);
+  }
   const cambiarPagina = (direccion) => {
     if (!lecturaAbierta) return;
     
@@ -380,7 +388,7 @@ function App() {
                 onChange={(e) => setPassword(e.target.value)} 
               />
             </div>
-            <button type="submit" className="btn-abrir-modal">
+            <button type="submit" className="btn-abrir-modal btn-abrir-modal-registro">
               {esRegistro ? 'Registrarme' : 'Entrar'}
             </button>
             <p className="texto-login">
@@ -395,80 +403,92 @@ function App() {
         <>
         {/*Barra de Navegacion */}
           <header className="navbar">
-            <div className="navbar-logo">
-              <h1>🐈 Viewpoint</h1>
+            {/* Contenedor que siempre se ve (Logo y Botón) */}
+            <div className="navbar-header-movil">
+              <div className="navbar-logo">
+                <h1>🐈 Viewpoint</h1>
+              </div>
+              
+              {/* Botón hamburguesa que solo se verá en teléfonos */}
+              <button 
+                className="btn-menu-principal" 
+                onClick={() => setMenuMovilAbierto(!menuMovilAbierto)}
+              >
+                {menuMovilAbierto ? '✖' : '☰'}
+              </button>
             </div>
             
-            <nav className="navbar-links">
-              {categoriasFiltro.map(cat => (
-                <button
-                  key={cat}
-                  className={`nav-tab ${filtroActivo === cat ? 'activo' : ''}`}
-                  onClick={() => setFiltroActivo(cat)}
-                >
-                  {cat}
-                </button>
-              ))}
-            </nav>
+            {/* Contenedor que se colapsa en teléfonos */}
+            <div className={`navbar-colapsable ${menuMovilAbierto ? 'abierto' : ''}`}>
+              <nav className="navbar-links">
+                {categoriasFiltro.map(cat => (
+                  <button
+                    key={cat}
+                    className={`nav-tab ${filtroActivo === cat ? 'activo' : ''}`}
+                    onClick={() => {
+                      setFiltroActivo(cat);
+                      setMenuMovilAbierto(false); 
+                    }}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </nav>
 
-            <div className="navbar-actions" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              
-              
-              <div className="menu-estados-container" style={{ position: 'relative' }}>
-                <button 
-                  className="btn-hamburguesa" 
-                  onClick={() => setMenuEstadoAbierto(!menuEstadoAbierto)}
-                  title="Filtrar por estado"
-                >
-                  ☰
-                </button>
-                
-              
-                {menuEstadoAbierto && (
-                  <div className="dropdown-estados">
-                    {estadosFiltro.map(est => (
-                      <button
-                        key={est}
-                        className={`dropdown-item ${estadoFiltro === est ? 'activo' : ''}`}
-                        onClick={() => {
-                          setEstadoFiltro(est);
-                          setMenuEstadoAbierto(false); 
-                        }}
-                      >
-                        {est}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <div className="navbar-actions" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <div className="menu-estados-container" style={{ position: 'relative' }}>
+                  <button 
+                    className="btn-hamburguesa" 
+                    onClick={() => setMenuEstadoAbierto(!menuEstadoAbierto)}
+                    title="Filtrar por estado"
+                  >
+                    ☰
+                  </button>
+                  
+                  {menuEstadoAbierto && (
+                    <div className="dropdown-estados">
+                      {estadosFiltro.map(est => (
+                        <button
+                          key={est}
+                          className={`dropdown-item ${estadoFiltro === est ? 'activo' : ''}`}
+                          onClick={() => {
+                            setEstadoFiltro(est);
+                            setMenuEstadoAbierto(false); 
+                          }}
+                        >
+                          {est}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="Botones-header">
+                  <a 
+                    href={`https://t.me/viewpoint_web_manager_bot?start=${sesion.user.id}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="btn-telegram"
+                    style={{
+                      alignItems: 'center',
+                      backgroundColor: '#0088cc98',
+                      color: 'white',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '1.2rem',
+                      marginBottom: '0.2rem',
+                      textDecoration: 'none',
+                      fontWeight: 'bold',
+                      fontSize: '0.9rem',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                    }}
+                    title="Vincular con mi Telegram"
+                  >
+                    🤖 Vincular Telegram
+                  </a>
+                  <button className="btn-abrir-modal" onClick={() => setModalAbierto(true)}>
+                    + Agregar Nuevo
+                  </button>
+                </div>
               </div>
-              <div className="Botones-header">
-                <a 
-                href={`https://t.me/viewpoint_web_manager_bot?start=${sesion.user.id}`} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="btn-telegram"
-                style={{
-                  alignItems: 'center',
-                  backgroundColor: '#0088cc98',
-                  color: 'white',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '1.2rem',
-                  marginBottom: '0.2rem',
-                  textDecoration: 'none',
-                  fontWeight: 'bold',
-                  fontSize: '0.9rem',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                }}
-                title="Vincular con mi Telegram"
-              >
-                🤖 Vincular Telegram
-              </a>
-                <button className="btn-abrir-modal" onClick={() => setModalAbierto(true)}>
-                + Agregar Nuevo
-              </button>
-              
-              </div>
-              
             </div>
           </header>
 
@@ -567,9 +587,21 @@ function App() {
                           +1 Capitulo
                         </button>
                       )}
-                      <button className="btn-editar" onClick={() => iniciarEdicion(item)}>
+                      
+                      {/* --- NUEVOS BOTONES DE EDICIÓN --- */}
+                      
+                      {/* Botón para la computadora (Imagen) */}
+                      <button className="btn-editar btn-editar-pc" onClick={() => iniciarEdicion(item)} title="Editar">
                         <img src="editarboton.png" alt="editar" />
                       </button>
+
+                      {/* Botón para el celular (Lápiz Cute) */}
+                      <button className="btn-accion btn-editar-movil" onClick={() => iniciarEdicion(item)} title="Editar">
+                        ✏️
+                      </button>
+                      
+                      {/* --------------------------------- */}
+
                       <button className="btn-editar-librito" onClick={() => abrirLibrito(item)} title="Ver Notas">
                         📖
                       </button>
